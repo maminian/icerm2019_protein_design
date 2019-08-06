@@ -24,6 +24,7 @@ def read_pdb(fname):
         elif len(lsplit) == 1: #I don't know
             break
         else:
+            # it looks like the xyz coordinates are in 6,7,8. Atom name in 11.
             # fix types... certainly a cleaner way to do this.
             lsplit[1] = int(lsplit[1])
             lsplit[5] = int(lsplit[5])
@@ -68,8 +69,6 @@ from mpl_toolkits.mplot3d import Axes3D
 fig = pyplot.figure()
 ax = fig.add_subplot(111, projection='3d')
 
-# it looks like the xyz coordinates are in 6,7,8. Atom name in 11.
-
 base_size = 50 # arbitrary; choose to make scatterplot visible.
 
 for row in atoms:
@@ -77,5 +76,6 @@ for row in atoms:
     xa,ya,za = row[6:9]
     # note: size still seems to correspond to units**2 in 3D plots.
     ax.scatter(xa,ya,za, c=[atom_colors.get(aname,[1,0,1])], s=base_size*vdw_radii.get(aname, 1)**2, alpha=0.5)
-
 ax.set_title(os.path.basename(pdb_files[prot_num]))
+
+fig.show()
