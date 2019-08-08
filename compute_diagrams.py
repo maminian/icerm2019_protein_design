@@ -22,9 +22,9 @@ save_pickles = True
 
 # Computes only this many diagrams: mostly for debugging. Set to np.Inf
 # to compute all of them.
-max_diagrams = 1
+max_diagrams = np.Inf
 
-elements = ['C', 'O', 'H', 'N']
+elements = ['S']
 exclusion_elements = ['H']
 
 with open(thresholds_pkl, 'rb') as h:
@@ -80,12 +80,16 @@ for element in elements:
         # Grab embedding
         X,label = coordinate_embedding(fname, filterbyelement=element)
 
+        if X.size == 0:
+            print('Skipping element {1:s}, label {0:s}: no atoms of specified type'.format(label, element))
+            continue
+
         # Compute PD threshold
         thresh = threshs[threshs.keys()[0]]
         if metric is 'euclidean':
             pass # thresh = thresh
         else: # Pass through lorentz kernel metric
-            etaij = compute_etaij(X[0,:], X[1,:]) # All atoms should be the same
+            etaij = compute_etaij(X[0,:], X[0,:]) # All atoms should be the same
             thresh = 1 - lorentz_kernel(thresh, etaij, nu=metric_info['lorentz']['nu'])
 
         # Compute diagram
