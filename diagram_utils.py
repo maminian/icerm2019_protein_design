@@ -149,7 +149,7 @@ stat_names.extend(['d'+name for name in temp_names])
 stat_names.extend(['p'+name for name in temp_names])
 stat_names.extend(['bdcor', 'bdcencor', 'totalper', 'bmaxper', 'dmaxper', 'bminper', 'dminper', 'Nfeatures'])
 stat_names.extend(['bci_' + '{0:02d}'.format(ind) for ind in range(Nbins)])
-stat_names.extend(['bcbin_' + '{0:02d}'.format(ind) for ind in range(Nbins+1)])
+stat_names.extend(['bcbin_' + '{0:03d}'.format(ind) for ind in range(Nbins+1)])
 
 # birth stats + death stats + pers stats + misc stats + betti curve
 Nstats = 10 + 10 + 10 + 8 + (Nbins + Nbins + 1)
