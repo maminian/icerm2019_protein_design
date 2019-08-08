@@ -78,3 +78,7 @@ target/
 *.h5
 *.pdb
 *.csv
+
+# User file paths
+local_file_locations.py
+thresholds.pickle

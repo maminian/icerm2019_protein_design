@@ -13,13 +13,17 @@
 # 10: 0.000 (verbatim...dunno)
 # 11: Element (str)
 
+import pdb
 import ntpath
 import numpy as np
 
-def coordinate_embedding(pdbfile):
+atom_list = ['H', 'C', 'O', 'N', 'S']
+VDW_list = [ 1.2, 1.7, 1.52, 1.54, 1.8]
+def coordinate_embedding(pdbfile, filterbyelement=False, excludeelement=False):
     """
-    Extracts the coordinate embedding of a protein: just a matrix of
-    atom locations.
+    Like the coordinate embedding, but also saves atom type as an index
+    of atom_list.
+    [ xcoord, ycoord, zcoord, atomindex]
     """
 
     label = ntpath.basename(pdbfile).split('.')[0]
@@ -28,19 +32,47 @@ def coordinate_embedding(pdbfile):
     lines = f.readlines()
     f.close()
 
-    Natoms = 0
+    not_TER = lambda inp: inp != 'TER'
+    if filterbyelement is False:
+        validatom = lambda inp: True
+    else:
+        validatom = lambda inp: inp == filterbyelement
+
+    Natoms = 0      # Total number of atoms in protein
+    Nvalidatoms = 0 # Number of atoms of a certain element type
     for line in lines:
-        if line.split()[0] != 'TER':
+        if not_TER(line.split()[0]):
             Natoms +=1
+            if validatom(line.split()[11]):
+                Nvalidatoms +=1
         else:
             break
 
-    X = np.zeros([Natoms, 3],dtype=float)
+    X = np.zeros([Nvalidatoms, 4],dtype=float)
 
+    count = 0
     for atomindex in range(Natoms):
         lsplit = lines[atomindex].split()
-        X[atomindex,0] = float(lsplit[6])
-        X[atomindex,1] = float(lsplit[7])
-        X[atomindex,2] = float(lsplit[8])
+        if validatom(lsplit[11]):
+            X[count,0] = float(lsplit[6])
+            X[count,1] = float(lsplit[7])
+            X[count,2] = float(lsplit[8])
+            X[count,3] = atom_list.index(lsplit[11])
+
+            count +=1
 
     return X, label
+
+def compute_etaij(A1, A2, tau=1.):
+    return tau*(VDW_list[int(A1[3])] + VDW_list[int(A2[3])])
+
+def adjusted_lorentz_metric(A1, A2, tau=1., nu=3.):
+    """
+    Computes adjusted Lorentz distance.
+    """
+
+    r = np.linalg.norm(A1[:3] - A2[:3])
+    return 1 - lorentz_kernel(r, compute_etaij(A1, A2,tau=tau), nu=nu)
+
+def lorentz_kernel(r, etaij, nu=3.):
+    return (1 + (r/etaij)**nu)**(-1.)
