@@ -19,7 +19,7 @@ import numpy as np
 
 atom_list = ['H', 'C', 'O', 'N', 'S']
 VDW_list = [ 1.2, 1.7, 1.52, 1.54, 1.8]
-def coordinate_embedding(pdbfile, filterbyelement=False, excludeelement=False):
+def coordinate_embedding(pdbfile, filterbyelements=None):
     """
     Like the coordinate embedding, but also saves atom type as an index
     of atom_list.
@@ -33,10 +33,10 @@ def coordinate_embedding(pdbfile, filterbyelement=False, excludeelement=False):
     f.close()
 
     not_TER = lambda inp: inp != 'TER'
-    if filterbyelement is False:
+    if filterbyelements is None:
         validatom = lambda inp: True
     else:
-        validatom = lambda inp: inp == filterbyelement
+        validatom = lambda inp: inp in filterbyelements
 
     Natoms = 0      # Total number of atoms in protein
     Nvalidatoms = 0 # Number of atoms of a certain element type

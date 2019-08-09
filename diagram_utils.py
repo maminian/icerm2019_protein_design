@@ -187,31 +187,36 @@ def compute_single_diagram_statistics(dgm, threshold, order):
     dgm[:,0] = b
     dgm[:,1] = d
 
-    p = d - b # persistence
-    stats[:10] = compute_stats(b)
-    stats[10:20] = compute_stats(d)
-    stats[20:30] = compute_stats(p)
+    if b.size > 0:
 
-    bmean = stats[3]
-    dmean = stats[13]
-    maxfeatind = np.argmax(p)
-    minfeatind = np.argmin(p)
-    stats[30:38] = [np.sum(b*d),
-                    np.sum((b-bmean)*(d-dmean)),
-                    np.sum(p),
-                    b[maxfeatind],
-                    d[maxfeatind],
-                    b[minfeatind],
-                    d[minfeatind],
-                    b.size]
+        p = d - b # persistence
+        stats[:10] = compute_stats(b)
+        stats[10:20] = compute_stats(d)
+        stats[20:30] = compute_stats(p)
 
-    betticurve = compute_betti_curve(dgm)
+        bmean = stats[3]
+        dmean = stats[13]
+        maxfeatind = np.argmax(p)
+        minfeatind = np.argmin(p)
+        stats[30:38] = [np.sum(b*d),
+                        np.sum((b-bmean)*(d-dmean)),
+                        np.sum(p),
+                        b[maxfeatind],
+                        d[maxfeatind],
+                        b[minfeatind],
+                        d[minfeatind],
+                        b.size]
 
-    ## Compute integral of Betti curve over bin
-    bettiints, bin_edges = integrate_binned_betti_curve(betticurve, Nbins, threshold)
+        betticurve = compute_betti_curve(dgm)
 
-    stats[38:(38+Nbins)] = bettiints
-    stats[(38+Nbins):(38+Nbins+Nbins+1)] = bin_edges
+        ## Compute integral of Betti curve over bin
+        bettiints, bin_edges = integrate_binned_betti_curve(betticurve, Nbins, threshold)
+
+        stats[38:(38+Nbins)] = bettiints
+        stats[(38+Nbins):(38+Nbins+Nbins+1)] = bin_edges
+
+    else:
+        stats[:] = np.nan
 
     return stats
 
@@ -234,17 +239,20 @@ def compute_all_diagram_statistics(dgms, threshs):
     Nproteins = len(data['label'])
     numdims = len( dgms[list(dgms.keys())[0]]['dgms'])
 
-    dfblank = DataFrame(data)
-    dffull = DataFrame()
+    # Create names for all the dimension as well
+    all_names = []
+    for dim in range(numdims):
+        all_names.extend(['H{0:d}_'.format(dim) + name for name in stat_names])
+
+    df = DataFrame(data)
 
     npnans = np.zeros([Nproteins])
     npnans[:] = np.nan
 
-    dfblank['threshold'] = npnans
-    dfblank['order'] = npnans
+    df['threshold'] = npnans
     # Allocate data frame rows/cols
-    for name in stat_names:
-        dfblank[name] = npnans
+    for name in all_names:
+        df[name] = npnans
 
     thresholds = np.zeros(Nproteins)
 
@@ -252,13 +260,9 @@ def compute_all_diagram_statistics(dgms, threshs):
 
     for order in range(numdims):
 
-        df = dfblank.copy()
-        df['order'] = order
-
         count = 0
         for ind,label in enumerate(data['label']):
 
-            #thresholds[ind] = threshs['threshold'][threshs['name']==label]
             thresholds[ind] = threshs[label]
 
             stats[ind, :] = compute_single_diagram_statistics(dgms[label]['dgms'][order], thresholds[ind], order)
@@ -270,7 +274,7 @@ def compute_all_diagram_statistics(dgms, threshs):
             df['threshold'][ind] = thresholds[ind]
 
         # Insert into appropriate place in df
-        df[stat_names] = stats
-        dffull = dffull.append(df)
+        order_names = ['H{0:d}_'.format(dim) + name for name in stat_names]
+        df[order_names] = stats
 
-    return dffull
+    return df

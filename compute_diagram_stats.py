@@ -40,8 +40,6 @@ for fname in pkl_files:
         thresh = thresh[list(thresh.keys())[0]]
         thresholds[label] =  1 - lorentz_kernel(thresh, etaij, nu=nu)
 
-    data = None
-
     with open(fname, 'rb') as h:
         dgms = pickle.load(h)
 

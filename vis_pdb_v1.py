@@ -6,7 +6,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from sklearn import metrics
 
-pdb_dir = '../data/pdbs/pdb_files/' #adjust as necessary
+pdb_dir = '/Users/akil/Downloads/tda_data/pdbs/' #adjust as necessary
 pdb_files = glob.glob(pdb_dir+'*.pdb')
 
 def read_pdb(fname):
