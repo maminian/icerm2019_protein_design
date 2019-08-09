@@ -195,7 +195,7 @@ def compute_single_diagram_statistics(dgm, threshold, order):
     bmean = stats[3]
     dmean = stats[13]
     maxfeatind = np.argmax(p)
-    minfeatind = np.argmax(p)
+    minfeatind = np.argmin(p)
     stats[30:38] = [np.sum(b*d),
                     np.sum((b-bmean)*(d-dmean)),
                     np.sum(p),
@@ -232,7 +232,7 @@ def compute_all_diagram_statistics(dgms, threshs):
     data = {}
     data['label'] = list(dgms.keys())
     Nproteins = len(data['label'])
-    numdims = len(dgms[list(dgms.keys())[0]]['dgms'])
+    numdims = len( dgms[list(dgms.keys())[0]]['dgms'])
 
     dfblank = DataFrame(data)
     dffull = DataFrame()

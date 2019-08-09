@@ -22,14 +22,12 @@ pkl_files = glob.glob(path.join(dgm_pickle_dir, '*.pkl'))
 pkl_template = 'stats'
 save_pickles = True
 
-elements = ['O', 'C', 'N', 'H']
-
 # Setup for recomputing thresholds
 thresholds_pkl = 'thresholds.pickle'
 with open(thresholds_pkl, 'rb') as h:
     data = pickle.load(h)
 
-for fname in pkl_files[:1]:
+for fname in pkl_files:
     element = fname.split('.')[-2].split('_')[-1]
     if element == 'S':
         continue    # Sulfur has many empty diagrams that cause issues
