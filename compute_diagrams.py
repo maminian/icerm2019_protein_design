@@ -32,8 +32,7 @@ max_diagrams = np.inf
 maxdim = 2
 
 # Specifies which atoms to use in computation of the diagrams
-#atom_lists = ['C', 'H', 'N', 'O', 'S',
-atom_lists = [ 'S',
+atom_lists = ['C', 'H', 'N', 'O', 'S',
                'CNOS', 'HNOS', 'CHNS', 'CHOS', 'CH', 'CHNOS', 'NOS']
 
 # Options: euclidean or lorentz
@@ -126,7 +125,7 @@ for atoms in atom_lists:
             # the distance matrix is huge and unnecessary
             del temp['dperm2all']
 
-        # adding other identifying labels: assume filename 
+        # adding other identifying labels: assume filename
         # with anatomy SSSS_rdN_PPPP.pdb, where SSSS is a secondary
         # structure, N is a round id, and PPPP is a number
         parts = label.split('_')
@@ -139,7 +138,7 @@ for atoms in atom_lists:
 
         # Log of progress
         count += 1
-        if count % 1 == 0:
+        if count % 50 == 0:
             print("{0:d} / {1:d}".format(count, min(len(pdb_files), max_diagrams)))
 
         if count >= max_diagrams:

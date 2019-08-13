@@ -143,16 +143,35 @@ def integrate_binned_betti_curve(betticurve, Nbins, threshold):
 temp_names = ['min', 'max', 'median', 'mean', 'var', 'mom2', 'mom3', 'momcen3', 'mom4', 'momcen4']
 Nbins = 100 # Number of bins for the betti curve
 
+bstats = ['b'+name for name in temp_names]
+binds0 = 0
+binds1 = binds0 + len(bstats)
+
+dstats = ['d'+name for name in temp_names]
+dinds0 = binds1
+dinds1 = dinds0 + len(dstats)
+
+pstats = ['p'+name for name in temp_names]
+pinds0 = dinds1
+pinds1 = pinds0 + len(pstats)
+
+miscstats = ['bdcor', 'bdcencor', 'totalper', 'bmaxper', 'dmaxper', 'bminper', 'dminper', 'Nfeatures']
+minds0 = pinds1
+minds1 = minds0 + len(miscstats)
+
+bettistats = ['bci_' + '{0:02d}'.format(ind) for ind in range(Nbins)]
+betti0 = minds1
+betti1 = betti0 + len(bettistats)
+
 stat_names = []
-stat_names.extend(['b'+name for name in temp_names])
-stat_names.extend(['d'+name for name in temp_names])
-stat_names.extend(['p'+name for name in temp_names])
-stat_names.extend(['bdcor', 'bdcencor', 'totalper', 'bmaxper', 'dmaxper', 'bminper', 'dminper', 'Nfeatures'])
-stat_names.extend(['bci_' + '{0:02d}'.format(ind) for ind in range(Nbins)])
-stat_names.extend(['bcbin_' + '{0:03d}'.format(ind) for ind in range(Nbins+1)])
+stat_names.extend(bstats)
+stat_names.extend(dstats)
+stat_names.extend(pstats)
+stat_names.extend(miscstats)
+stat_names.extend(bettistats)
 
 # birth stats + death stats + pers stats + misc stats + betti curve
-Nstats = 10 + 10 + 10 + 8 + (Nbins + Nbins + 1)
+Nstats = betti1
 
 def compute_single_diagram_statistics(dgm, threshold, order):
     """
@@ -171,8 +190,7 @@ def compute_single_diagram_statistics(dgm, threshold, order):
     b = dgm[:,0] # births
     d = dgm[:,1] # deaths
 
-    if order == 0:
-        # Remove first instance of inf death
+    if order == 0: # Remove first instance of inf death
         infinds = np.where(np.isinf(d))[0]
         if len(infinds) > 0:
             infind = infinds[0]
@@ -190,91 +208,93 @@ def compute_single_diagram_statistics(dgm, threshold, order):
     if b.size > 0:
 
         p = d - b # persistence
-        stats[:10] = compute_stats(b)
-        stats[10:20] = compute_stats(d)
-        stats[20:30] = compute_stats(p)
+        stats[binds0:binds1] = compute_stats(b)
+        stats[dinds0:dinds1] = compute_stats(d)
+        stats[pinds0:pinds1] = compute_stats(p)
 
-        bmean = stats[3]
-        dmean = stats[13]
+        bmean = stats[binds0 + 3]
+        dmean = stats[dinds0 + 3]
         maxfeatind = np.argmax(p)
         minfeatind = np.argmin(p)
-        stats[30:38] = [np.sum(b*d),
-                        np.sum((b-bmean)*(d-dmean)),
-                        np.sum(p),
-                        b[maxfeatind],
-                        d[maxfeatind],
-                        b[minfeatind],
-                        d[minfeatind],
-                        b.size]
+        stats[minds0:minds1] = [np.sum(b*d),
+                                np.sum((b-bmean)*(d-dmean)),
+                                np.sum(p),
+                                b[maxfeatind],
+                                d[maxfeatind],
+                                b[minfeatind],
+                                d[minfeatind],
+                                b.size]
 
         betticurve = compute_betti_curve(dgm)
 
         ## Compute integral of Betti curve over bin
         bettiints, bin_edges = integrate_binned_betti_curve(betticurve, Nbins, threshold)
 
-        stats[38:(38+Nbins)] = bettiints
-        stats[(38+Nbins):(38+Nbins+Nbins+1)] = bin_edges
+        stats[betti0:betti1] = bettiints
 
     else:
         stats[:] = np.nan
 
-    return stats
+    return stats, threshold/Nbins
 
-def compute_all_diagram_statistics(dgms, threshs):
+def compute_all_diagram_statistics(dgms, maxval):
     """
     Computes statistics for all persistence diagrams that are input dict form.
 
-    dgms is a dict whose keys are labels for the particular protein, and
-    each entry in the dict is a verbatim output from ripser.ripser.
+    dgms is a pandas dataframe where each entry contains the diagram for
+    a particular protein.
 
-    threshs has the same structure: a dict of thresholds for each label.
-
-    Returns a pandas dataframe
+    Returns a pandas dataframe.
     """
 
-    verbosity = 5
+    verbosity = 50
 
-    data = {}
-    data['label'] = list(dgms.keys())
-    Nproteins = len(data['label'])
-    numdims = len( dgms[list(dgms.keys())[0]]['dgms'])
+    Nproteins = dgms.shape[0]
+    numdims = 0
+    for col in dgms.keys():
+        HN = col.split('_')[0]
+        if HN[0] == 'H':
+            numdims = max(numdims, int(HN[1])+1)
 
     # Create names for all the dimension as well
-    all_names = []
+    idcols = ['name', 'secstruct', 'rd', 'number']
+    all_names = idcols.copy()
+    Hnames = []
     for dim in range(numdims):
-        all_names.extend(['H{0:d}_'.format(dim) + name for name in stat_names])
+        Hnames.append(['H{0:d}_'.format(dim) + name for name in stat_names])
+        all_names.extend(Hnames[dim])
+        all_names.append('bettibin_size')
+        all_names.append('H{0:d}_'.format(dim) + 'PI')
 
-    df = DataFrame(data)
+    # Allocate data frame
+    df = DataFrame(columns=all_names)
 
-    npnans = np.zeros([Nproteins])
+    # Sloppy way to add rows to df with nans
+    npnans = np.zeros(df.shape[1])
     npnans[:] = np.nan
 
-    df['threshold'] = npnans
-    # Allocate data frame rows/cols
-    for name in all_names:
-        df[name] = npnans
+    count = 0
+    for index, protein in dgms.iterrows():
+        # Append row to data frame
+        df.loc[index] = npnans
 
-    thresholds = np.zeros(Nproteins)
+        # Assign metadata
+        for col in idcols:
+            df[col][index] = protein[col]
 
-    stats = np.zeros([Nproteins, Nstats])
+        for dim in range(numdims):
 
-    for order in range(numdims):
+            # Compute diagram statistics
+            stats, dthresh = compute_single_diagram_statistics(protein['H{0:d}'.format(dim) + '_dgm'], maxval, dim)
 
-        count = 0
-        for ind,label in enumerate(data['label']):
+            # Assign stats to appropriate locations
+            for q, sname in enumerate(Hnames[dim]):
+                df[sname] = stats[q]
 
-            thresholds[ind] = threshs[label]
+        df['bettibin_size'] = dthresh
 
-            stats[ind, :] = compute_single_diagram_statistics(dgms[label]['dgms'][order], thresholds[ind], order)
-
-            count += 1
-            if (count % verbosity) == 0:
-                print("Computed order {2:d}, count {0:d}/{1:d}".format(count, Nproteins, order))
-
-            df['threshold'][ind] = thresholds[ind]
-
-        # Insert into appropriate place in df
-        order_names = ['H{0:d}_'.format(dim) + name for name in stat_names]
-        df[order_names] = stats
+        count += 1
+        if (count % verbosity) == 0:
+            print("Computed {0:d}/{1:d} proteins".format(count, Nproteins))
 
     return df
