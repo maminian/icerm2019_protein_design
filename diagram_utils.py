@@ -3,7 +3,7 @@
 import numpy as np
 import scipy as sp
 from pandas import DataFrame
-import persim
+from persim import PersImage
 import pdb
 
 def bottleneck_distance_matrix(dgms):
@@ -38,16 +38,20 @@ def compute_stats(array):
     Computes ``desirable`` statistics for a vector.
     """
 
-    return np.array([np.min(array),
-                     np.max(array),
-                     np.median(array),
-                     np.mean(array),
-                     np.var(array),
-                     np.sum(array**2),
-                     np.sum(array**3),
-                     np.sum(array**4),
-                     sp.stats.moment(array, moment=3),
-                     sp.stats.moment(array, moment=4)])
+    if array is None: # Return stat names
+        return ['min', 'max', 'median', 'mean', 'var', \
+                'mom2', 'mom3', 'momcen3', 'mom4', 'momcen4']
+    else:
+        return np.array([np.min(array),
+                         np.max(array),
+                         np.median(array),
+                         np.mean(array),
+                         np.var(array),
+                         np.sum(array**2),
+                         np.sum(array**3),
+                         np.sum(array**4),
+                         sp.stats.moment(array, moment=3),
+                         sp.stats.moment(array, moment=4)])
 
 def compute_betti_curve(dgm):
     """
@@ -173,81 +177,132 @@ stat_names.extend(bettistats)
 # birth stats + death stats + pers stats + misc stats + betti curve
 Nstats = betti1
 
-def compute_single_diagram_statistics(dgm, threshold, order):
+def clean_births_deaths(bd, threshold, dim):
     """
-    Computes stats of a single persistence diagram, input as an array
-    with 2 columns.
+    If dim == 0, this removes the feature with the first death value
+    of inf, and replaces the remaining inf's with the threshold value.
 
-    If order == 0, this removes the feature with the first death value
-    of inf, and replaces the rest with the threshold value.
-
-    If order > 0, this replaces all inf death values with the threshold.
+    If dim > 0, this replaces all inf death values with the threshold.
     """
 
-    Nbins = 100 # Number of betti curve bins
-    stats = np.zeros(Nstats)
+    b = bd[:,0] # births
+    d = bd[:,1] # deaths
 
-    b = dgm[:,0] # births
-    d = dgm[:,1] # deaths
-
-    if order == 0: # Remove first instance of inf death
+    if dim == 0: # Remove first instance of inf death
         infinds = np.where(np.isinf(d))[0]
         if len(infinds) > 0:
             infind = infinds[0]
-            rest = infinds[1:]
+            #rest = infinds[1:]
         d = np.delete(d, infind)
         b = np.delete(b, infind)
 
     # Replace infs with maximum threshold
     d[np.where(np.isinf(d))[0]] = threshold
 
-    dgm = np.zeros([b.size, 2])
-    dgm[:,0] = b
-    dgm[:,1] = d
+    bd = np.zeros([b.size, 2])
+    bd[:,0] = b
+    bd[:,1] = d
+
+    return bd
+
+def compute_single_diagram_statistics(dgm, threshold=None, dim=0):
+    """
+    Computes stats of a single persistence diagram dgm, input as an
+    array with 2 columns.
+    """
+
+    if dgm is None: # Return list of stat names
+        basenames = compute_stats(None)
+        stat_names = []
+        # Birth stats
+        stat_names.append(['b'+name for name in basenames])
+        # Death stats
+        stat_names.append(['d'+name for name in basenames])
+        # Persistence stats
+        stat_names.append(['p'+name for name in basenames])
+
+        # Miscllaneous stats
+        stat_names.append(['bdcor', 'bdcencor', 'totalper', 'bmaxper', 'dmaxper', 'bminper', 'dminper', 'Nfeatures'])
+        # Betti curve
+        stat_names.append(['betticurve'])
+        # Persistence image
+        stat_names.append(['PI'])
+        return stat_names
+
+    # Else:
+
+    Nbins = 100 # Number of betti curve bins
+    stats = []
+
+    dgm = clean_births_deaths(dgm, threshold, dim)
+    b = dgm[:,0]
+    d = dgm[:,1]
 
     if b.size > 0:
 
         p = d - b # persistence
-        stats[binds0:binds1] = compute_stats(b)
-        stats[dinds0:dinds1] = compute_stats(d)
-        stats[pinds0:pinds1] = compute_stats(p)
+        stats.append(compute_stats(b))
+        stats.append(compute_stats(d))
+        stats.append(compute_stats(p))
+        #stats[binds0:binds1] = compute_stats(b)
+        #stats[dinds0:dinds1] = compute_stats(d)
+        #stats[pinds0:pinds1] = compute_stats(p)
 
-        bmean = stats[binds0 + 3]
-        dmean = stats[dinds0 + 3]
+        bmean = stats[0][3]
+        dmean = stats[1][3]
+        #bmean = stats[binds0 + 3]
+        #dmean = stats[dinds0 + 3]
+
         maxfeatind = np.argmax(p)
         minfeatind = np.argmin(p)
-        stats[minds0:minds1] = [np.sum(b*d),
+        stats.append([np.sum(b*d),
                                 np.sum((b-bmean)*(d-dmean)),
                                 np.sum(p),
                                 b[maxfeatind],
                                 d[maxfeatind],
                                 b[minfeatind],
                                 d[minfeatind],
-                                b.size]
+                                b.size
+                     ])
+        #stats[minds0:minds1] = [np.sum(b*d),
+        #                        np.sum((b-bmean)*(d-dmean)),
+        #                        np.sum(p),
+        #                        b[maxfeatind],
+        #                        d[maxfeatind],
+        #                        b[minfeatind],
+        #                        d[minfeatind],
+        #                        b.size]
 
         betticurve = compute_betti_curve(dgm)
 
         ## Compute integral of Betti curve over bin
         bettiints, bin_edges = integrate_binned_betti_curve(betticurve, Nbins, threshold)
 
-        stats[betti0:betti1] = bettiints
+        stats.append([bettiints])
+        #stats[betti0:betti1] = bettiints
+
+        pim = PersImage(spread=0.05, pixels=[10,10], verbose=False)
+        img = pim.transform(dgm)
+        stats.append([img])
 
     else:
-        stats[:] = np.nan
+        stats = None
 
     return stats, threshold/Nbins
 
-def compute_all_diagram_statistics(dgms, maxval):
+def compute_all_diagram_statistics(dgms, maxval, maxdgm=np.Inf):
     """
     Computes statistics for all persistence diagrams that are input dict form.
 
     dgms is a pandas dataframe where each entry contains the diagram for
     a particular protein.
 
+    Only computes maxdgm diagrams. (Useful for debugging.)
+
     Returns a pandas dataframe.
     """
 
-    verbosity = 50
+    verbosity = 100
 
     Nproteins = dgms.shape[0]
     numdims = 0
@@ -259,12 +314,14 @@ def compute_all_diagram_statistics(dgms, maxval):
     # Create names for all the dimension as well
     idcols = ['name', 'secstruct', 'rd', 'number']
     all_names = idcols.copy()
+    stat_names = compute_single_diagram_statistics(None)
     Hnames = []
     for dim in range(numdims):
-        Hnames.append(['H{0:d}_'.format(dim) + name for name in stat_names])
-        all_names.extend(Hnames[dim])
-        all_names.append('bettibin_size')
-        all_names.append('H{0:d}_'.format(dim) + 'PI')
+        Hnames.append([])
+        for names in stat_names:
+            Hnames[dim].append(['H{0:d}_'.format(dim) + name for name in names])
+            all_names.extend(Hnames[dim][-1])
+    all_names.append('bettibin_size')
 
     # Allocate data frame
     df = DataFrame(columns=all_names)
@@ -280,20 +337,31 @@ def compute_all_diagram_statistics(dgms, maxval):
 
         # Assign metadata
         for col in idcols:
-            df[col][index] = protein[col]
+            df.loc[index, col] = protein[col]
 
         for dim in range(numdims):
 
             # Compute diagram statistics
-            stats, dthresh = compute_single_diagram_statistics(protein['H{0:d}'.format(dim) + '_dgm'], maxval, dim)
+            dgmcolname = 'H{0:d}'.format(dim) + '_dgm'
+            if protein[dgmcolname] is not None:
+                stats, dthresh = compute_single_diagram_statistics(protein[dgmcolname], maxval, dim)
+            else:
+                stats = None
+                dthresh = maxval
+            if stats is None: # empty diagram
+                print('H{0:d} diagram for {1:s} is empty'.format(dim, protein['name']))
+                pass
+            else:
+                # Assign stats to appropriate locations
+                for batchind, names in enumerate(Hnames[dim]):
+                    for statind, name in enumerate(names):
+                        df.loc[index, name] = stats[batchind][statind]
 
-            # Assign stats to appropriate locations
-            for q, sname in enumerate(Hnames[dim]):
-                df[sname] = stats[q]
-
-        df['bettibin_size'] = dthresh
+        df.loc[index, 'bettibin_size'] = dthresh
 
         count += 1
+        if count >= maxdgm:
+            break
         if (count % verbosity) == 0:
             print("Computed {0:d}/{1:d} proteins".format(count, Nproteins))
 

@@ -15,6 +15,11 @@ pkl_template = 'stats'
 for fname in pkl_files:
     atoms = fname.split('.')[-2].split('_')[-1]
 
+    if atoms == 'CNOS':
+        continue
+
+    print('Computing stats for atoms {0:s}'.format(atoms))
+
     # Maximum radius
     maxval = 1.
 
